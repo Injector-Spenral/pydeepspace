@@ -119,6 +119,13 @@ class Robot(magicbot.MagicRobot):
         self.intake_switch = wpilib.DigitalInput(0)
         self.arm_motor = rev.CANSparkMax(2, rev.MotorType.kBrushless)
 
+        self.arduino_port = wpilib.SerialPort(
+            baud_rate=9600,
+            port=wpilib.SerialPort.Port.kUSB,
+            parity=wpilib.SerialPort.Parity.kOdd,
+            stopBits=wpilib.SerialPort.StopBits.kOne,
+        )
+
         # boilerplate setup for the joystick
         self.joystick = wpilib.Joystick(0)
         self.gamepad = wpilib.XboxController(1)
