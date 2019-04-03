@@ -20,7 +20,7 @@ class ColourSensor:
 
     arduino_port: wpilib.SerialPort
 
-    baud_rate: int = 9600
+    baud_rate: int = 115200
     read_char: int = 100
 
     num_sensors: int = 14
@@ -36,8 +36,13 @@ class ColourSensor:
     def __init__(self):
         self.readings = None
         self.last_reading_time = 0
+        self.position_cargo = None
+        self.position_hatch = None
 
     def split_packet(self, packet):
+        if self.arduino_port is None:
+            print("WARNING: Arduino not attached to roboRIO")
+            return
         print('splitting packet')
         try:
             packet_split = [value for value in packet.split(self.value_separator)
@@ -56,7 +61,6 @@ class ColourSensor:
         return None
 
     def execute(self):
-        # total_str = ""
         total_str = self.arduino_port.readString(count=self.read_char)
         print(f"Total str {total_str}")
         packets = total_str.split(self.packet_separator)
@@ -70,7 +74,8 @@ class ColourSensor:
             values = self.split_packet(packet)
             if values is not None:
                 self.last_reading_time = time.monotonic()
-                self.front_r
+                self.readings = values
+                break
         if (time.monotonic() - self.last_reading_time) > self.reading_timeout:
             self.readings = None
         print(f'readings {self.readings}')
