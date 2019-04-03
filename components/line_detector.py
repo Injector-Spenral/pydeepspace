@@ -1,22 +1,25 @@
 import wpilib
 import time
-# from hal_impl.serial_helpers import SerialSimBase
+import hal
+import numpy as np
+
+if hal.isSimulation():
+    from hal_impl.serial_helpers import SerialSimBase
+
+    class LineDetectorSerialSimulator(SerialSimBase):
+        serial_string = "f0.1,0.2,0.3,0.4,0.5,0.6,0.7\nb0.9,0.2,0.3,0.4,0.5,0.6,9.8\n"
+
+        def readString(self, count):
+            num_strings = (count % len(self.serial_string))
+            return ([self.serial_string]*num_strings)[:count]
+
+        def readSerial(self, port, buffer, count, status):
+            status.value = 0
+            buffer[:] = [ord("c")] * count
+            return count
 
 
-# class ColourSerialSimulator(SerialSimBase):
-#     serial_string = "f0.1,0.2,0.3,0.4,0.5,0.6,0.7\nb0.9,0.2,0.3,0.4,0.5,0.6,9.8\n"
-
-#     def readString(self, count):
-#         num_strings = (count % len(self.serial_string))
-#         return ([self.serial_string]*num_strings)[:count]
-
-#     def readSerial(self, port, buffer, count, status):
-#         status.value = 0
-#         buffer[:] = [ord("c")] * count
-#         return count
-
-
-class ColourSensor:
+class LineDetectorSensor:
 
     arduino_port: wpilib.SerialPort
 
@@ -24,6 +27,8 @@ class ColourSensor:
     read_char: int = 100
 
     num_sensors: int = 14
+
+    readings_threshold = 15000
 
     reading_timeout: float = 0.4 # s
 
@@ -36,6 +41,7 @@ class ColourSensor:
     def __init__(self):
         self.readings = None
         self.last_reading_time = 0
+        # read these to get the position
         self.position_cargo = None
         self.position_hatch = None
 
@@ -60,15 +66,34 @@ class ColourSensor:
         print('returning none')
         return None
 
+    def generate_positions(self):
+        if self.readings is None:
+            self.position_cargo = None
+            self.position_hatch = None
+            print('No readings')
+            return
+        self.position_hatch = (np.mean([
+            i
+            for i, reading in enumerate(self.readings[11:14])
+            if reading > self.threshold])
+            - 1)
+        # self.position_hatch = (np.mean([
+        #     i
+        #     for i, reading in enumerate(self.readings[0:7])
+        #     if reading > self.threshold])
+        #     - 3)
+        self.position_cargo = (np.mean([
+            i
+            for i, reading in enumerate(self.readings[7:14])
+            if reading > self.threshold])
+            - 3)
+        print(f'Position Cargo {self.position_cargo}\nPosition Hatch {self.position_hatch}')
+
     def execute(self):
         total_str = self.arduino_port.readString(count=self.read_char)
-        print(f"Total str {total_str}")
         packets = total_str.split(self.packet_separator)
-        print(f"Packets {packets}")
 
-        # parse out the front and back
         for packet in reversed(packets):
-            print(f'Parsing {packet}')
             if packet == "":
                 continue
             values = self.split_packet(packet)
@@ -78,4 +103,7 @@ class ColourSensor:
                 break
         if (time.monotonic() - self.last_reading_time) > self.reading_timeout:
             self.readings = None
-        print(f'readings {self.readings}')
+            self.position_cargo = None
+            self.position_hatch = None
+
+        self.generate_positions()
