@@ -72,12 +72,14 @@ class Aligner(StateMachine):
         #         a = self.chassis.acceleration
         #     self.v = self.u + a * state_tm
 
+
         if self.cargo.cargo_component.is_contained():
             tape_offset = self.line_detector.position_cargo
-            if tape_offset != None:
-                tape_offset *= -1
+            cargo_tape = True 
         else:
             tape_offset = self.line_detector.position_hatch
+            cargo_tape = False
+            
         fiducial_x, fiducial_y, delta_heading = self.vision.get_fiducial_position()
         if not (tape_offset == None):
             if 0.1 > tape_offset > -0.1: #Transition
@@ -91,9 +93,14 @@ class Aligner(StateMachine):
                 self.chassis.set_inputs(0, 0, 0)
                 self.next_state("success")
             else: #Moving Forward
-                self.chassis.set_inputs(
-                    self.tape_forward_speed, 0, 0, field_oriented=False
-                )
+                if cargo_tape == True:
+                    self.chassis.set_inputs(
+                        self.tape_forward_speed, 0, 0, field_oriented=False
+                    )
+                else:
+                    self.chassis.set_inputs(
+                        -self.tape_forward_speed, 0, 0, field_oriented=False
+                    )
                 self.dist -= self.tape_forward_speed  / 50
         elif not self.vision.fiducial_in_sight or abs(fiducial_x) > abs(self.last_range):
             # self.chassis.set_inputs(0, 0, 0)
