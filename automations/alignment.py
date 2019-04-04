@@ -80,20 +80,21 @@ class Aligner(StateMachine):
             tape_offset = self.line_detector.position_hatch
         fiducial_x, fiducial_y, delta_heading = self.vision.get_fiducial_position()
         if not (tape_offset == None):
-            if 0.1 > tape_offset > -0.1:
+            if 0.1 > tape_offset > -0.1: #Transition
                 if self.dist == None:
                     self.dist = 0.45
+            elif not (0.1 > tape_offset > -0.1): #Moving Sideways
                 self.chassis.set_inputs(
                     0, tape_offset * self.tape_align_speed, 0, field_oriented=False
                 )
-            elif self.dist < 0.05:
+            elif self.dist < 0.05: #Deploy
                 self.chassis.set_inputs(0, 0, 0)
                 self.next_state("success")
-            else:
+            else: #Moving Forward
                 self.chassis.set_inputs(
                     self.tape_forward_speed, 0, 0, field_oriented=False
                 )
-                self.dist -= 0.02
+                self.dist -= self.tape_forward_speed  / 50
         elif not self.vision.fiducial_in_sight or abs(fiducial_x) > abs(self.last_range):
             # self.chassis.set_inputs(0, 0, 0)
             # self.next_state("success")
